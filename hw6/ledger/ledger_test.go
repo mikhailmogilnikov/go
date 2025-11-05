@@ -55,6 +55,7 @@ func TestTransaction_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.tx.Validate()
 			if tt.wantErr {
 				if err == nil {
@@ -117,6 +118,7 @@ func TestBudget_Validate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			err := tt.budget.Validate()
 			if tt.wantErr {
 				if err == nil {
@@ -196,4 +198,3 @@ func TestBudgetAndTransaction(t *testing.T) {
 		}
 	})
 }
-

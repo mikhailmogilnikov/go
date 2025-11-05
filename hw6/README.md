@@ -51,9 +51,9 @@ go test ./... -cover -coverprofile=cover.out
 go tool cover -html=cover.out -o cover.html
 ```
 
-**Покрытие тестами ~85%**
+**Покрытие тестами ~82%**
 
-- ledger: 84.6% покрытия
+- ledger: 79.5% покрытия
 - gateway/internal/api: 85.3% покрытия
 
 ## Структура тестов
