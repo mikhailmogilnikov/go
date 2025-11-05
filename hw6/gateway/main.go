@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/mikhailmogilnikov/go/hw5/gateway/internal/api"
+	"github.com/mikhailmogilnikov/go/hw6/gateway/internal/api"
 )
 
 func main() {
