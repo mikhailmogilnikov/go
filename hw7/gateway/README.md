@@ -1,60 +1,73 @@
-# Gateway (hw7)
+# Gateway
 
-REST‑обёртка над Ledger. Эндпоинты те же, что были раньше, плюс простой отчёт.
+HTTP сервер для тестирования API. Просто обращается к Ledger, который уже работает с PostgreSQL и Redis.
 
 ## Запуск
 
-1) Примените миграции (см. `hw7/ledger/README.md`).  
-2) Задайте переменные (Ledger читает их при инициализации):
+Сначала запустим PostgreSQL и Redis (смотрим в ledger/README.md как это сделать).
 
+Потом нужно задать переменные:
 ```bash
-export DATABASE_URL="postgres://postgres:postgres@localhost:5432/cashapp?sslmode=disable"
-export REDIS_ADDR="localhost:6379"
-export REDIS_DB="0"
+export DATABASE_URL="postgres://postgres:postgres@localhost:5433/cashapp?sslmode=disable"
+export REDIS_ADDR=localhost:6379
+export REDIS_DB=0
 ```
 
-3) Запустите сервер:
+И запускаем:
 ```bash
-cd hw7/gateway
-go run main.go
-# http://localhost:8080
+cd gateway
+go run .
 ```
 
-## Быстрые проверки (cURL)
+Сервер будет на `http://localhost:8080`
 
-Создать бюджет:
+## Примеры запросов
+
+### Бюджеты
+
+Создать:
 ```bash
 curl -X POST http://localhost:8080/api/budgets \
   -H "Content-Type: application/json" \
-  -d '{"category":"еда","limit":5000}'
+  -d '{"category":"food","limit":1000}'
 ```
 
-Создать транзакцию:
+Получить все:
+```bash
+curl http://localhost:8080/api/budgets
+```
+
+### Транзакции
+
+Создать:
 ```bash
 curl -X POST http://localhost:8080/api/transactions \
   -H "Content-Type: application/json" \
-  -d '{"amount":450,"category":"еда","description":"ланч","date":"2025-10-20"}'
+  -d '{"amount":200,"category":"food","description":"groceries","date":"2025-11-11"}'
 ```
 
-Списки:
+Получить все:
 ```bash
-curl http://localhost:8080/api/budgets
 curl http://localhost:8080/api/transactions
 ```
 
-Превышение (ожидается 409):
+Попробовать превысить лимит (должно вернуть 409):
 ```bash
 curl -X POST http://localhost:8080/api/transactions \
   -H "Content-Type: application/json" \
-  -d '{"amount":999999,"category":"еда","description":"тест","date":"2025-10-20"}'
+  -d '{"amount":1500,"category":"food","description":"big expense","date":"2025-11-11"}'
 ```
 
-Отчёт (вызовите два раза подряд, второй быстрее из‑за кеша):
+### Отчёты
+
+Первый запрос (пойдёт в БД):
 ```bash
-curl "http://localhost:8080/api/reports/summary?from=2025-10-01&to=2025-10-31"
-curl "http://localhost:8080/api/reports/summary?from=2025-10-01&to=2025-10-31"
+curl "http://localhost:8080/api/reports/summary?from=2025-11-10&to=2025-11-11"
 ```
 
-Теперь Ledger хранит данные в PostgreSQL, а отчёты кэшируются в Redis на короткий TTL.
+Второй запрос (из кеша, будет быстрее):
+```bash
+curl "http://localhost:8080/api/reports/summary?from=2025-11-10&to=2025-11-11"
+```
 
-
+Второй раз быстрее, потому что данные уже в Redis. Кеш живёт 30 секунд.

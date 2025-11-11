@@ -5,45 +5,88 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
-var DB *sql.DB
+var (
+	sqlDB    *sql.DB
+	initOnce sync.Once
+)
 
-func getenv(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
-}
-
-func buildDSN() string {
+func buildDSNFromEnv() string {
 	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
 		return dsn
 	}
-	host := getenv("DB_HOST", "localhost")
-	port := getenv("DB_PORT", "5432")
-	user := getenv("DB_USER", "postgres")
-	pass := getenv("DB_PASS", "postgres")
-	name := getenv("DB_NAME", "cashapp")
-	ssl := getenv("DB_SSLMODE", "disable")
-	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s", user, pass, host, port, name, ssl)
+
+	host := os.Getenv("DB_HOST")
+	if host == "" {
+		host = "localhost"
+	}
+	port := os.Getenv("DB_PORT")
+	if port == "" {
+		port = "5432"
+	}
+	user := os.Getenv("DB_USER")
+	if user == "" {
+		user = "postgres"
+	}
+	pass := os.Getenv("DB_PASS")
+	if pass == "" {
+		pass = "postgres"
+	}
+	name := os.Getenv("DB_NAME")
+	if name == "" {
+		name = "cashapp"
+	}
+
+	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable", user, pass, host, port, name)
 }
 
 func Init() {
-	var err error
-	dsn := buildDSN()
-	DB, err = sql.Open("pgx", dsn)
-	if err != nil {
-		log.Fatalf("ledger: failed to open database connection: %v", err)
+	var initErr error
+
+	initOnce.Do(func() {
+		dsn := buildDSNFromEnv()
+		if dsn == "" {
+			initErr = fmt.Errorf("empty DSN: set DATABASE_URL or DB_* variables")
+			return
+		}
+
+		db, err := sql.Open("pgx", dsn)
+		if err != nil {
+			initErr = fmt.Errorf("sql.Open failed: %w", err)
+			return
+		}
+
+		db.SetMaxOpenConns(10)
+		db.SetMaxIdleConns(5)
+		db.SetConnMaxLifetime(5 * time.Minute)
+
+		if err = db.Ping(); err != nil {
+			_ = db.Close()
+			initErr = fmt.Errorf("database ping failed: %w", err)
+			return
+		}
+
+		sqlDB = db
+		log.Printf("ledger: connected to database")
+	})
+
+	if initErr != nil {
+		log.Fatalf("ledger: database init failed: %v", initErr)
 	}
-	DB.SetMaxOpenConns(10)
-	DB.SetMaxIdleConns(5)
-	DB.SetConnMaxLifetime(30 * time.Minute)
-	if err := DB.Ping(); err != nil {
-		log.Fatalf("ledger: failed to ping database: %v", err)
+}
+
+func DB() *sql.DB {
+	return sqlDB
+}
+
+func Close() error {
+	if sqlDB != nil {
+		return sqlDB.Close()
 	}
-	log.Println("ledger: connected to postgres")
+	return nil
 }

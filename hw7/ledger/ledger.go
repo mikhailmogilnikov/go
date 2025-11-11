@@ -26,10 +26,10 @@ type Transaction struct {
 
 func (t Transaction) Validate() error {
 	if t.Amount <= 0 {
-		return errors.New("сумма транзакции должна быть положительным числом")
+		return errors.New("transaction amount must be positive")
 	}
 	if t.Category == "" {
-		return errors.New("категория транзакции не может быть пустой")
+		return errors.New("transaction category cannot be empty")
 	}
 	return nil
 }
@@ -40,12 +40,17 @@ type Budget struct {
 	Period   string
 }
 
+type ReportSummary struct {
+	Category string  `json:"category"`
+	Total    float64 `json:"total"`
+}
+
 func (b Budget) Validate() error {
 	if b.Limit <= 0 {
-		return errors.New("лимит бюджета должен быть положительным числом")
+		return errors.New("budget limit must be positive")
 	}
 	if b.Category == "" {
-		return errors.New("категория бюджета не может быть пустой")
+		return errors.New("budget category cannot be empty")
 	}
 	return nil
 }
@@ -55,136 +60,191 @@ func init() {
 	cache.Init()
 }
 
-func SetBudget(b Budget) error {
-	if err := b.Validate(); err != nil {
+func AddTransaction(tx *Transaction) error {
+	if err := tx.Validate(); err != nil {
 		return err
 	}
-	_, err := db.DB.Exec(`INSERT INTO budgets(category, limit_amount) VALUES($1,$2)
-ON CONFLICT(category) DO UPDATE SET limit_amount=EXCLUDED.limit_amount`, b.Category, b.Limit)
+
+	var limitAmount sql.NullFloat64
+	err := db.DB().QueryRow(`SELECT limit_amount FROM budgets WHERE category=$1`, tx.Category).Scan(&limitAmount)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+
+	if err == nil && limitAmount.Valid {
+		var spent sql.NullFloat64
+		err = db.DB().QueryRow(`SELECT COALESCE(SUM(amount), 0) FROM expenses WHERE category=$1`, tx.Category).Scan(&spent)
+		if err != nil {
+			return err
+		}
+
+		spentValue := 0.0
+		if spent.Valid {
+			spentValue = spent.Float64
+		}
+
+		if spentValue+tx.Amount > limitAmount.Float64 {
+			return errors.New("budget exceeded")
+		}
+	}
+
+	query := `INSERT INTO expenses(amount, category, description, date) 
+	          VALUES($1, $2, $3, $4) 
+	          RETURNING id`
+
+	err = db.DB().QueryRow(query, tx.Amount, tx.Category, tx.Description, tx.Date).Scan(&tx.ID)
 	if err != nil {
 		return err
 	}
-	if cache.Client != nil {
-		cache.Client.Del(context.Background(), "budgets:all")
-	}
+
 	return nil
 }
 
-func ListBudgets() ([]Budget, error) {
-	if cache.Client != nil {
-		if v, err := cache.Client.Get(context.Background(), "budgets:all").Result(); err == nil {
-			var items []Budget
-			if json.Unmarshal([]byte(v), &items) == nil {
-				return items, nil
-			}
-		}
-	}
-	rows, err := db.DB.Query(`SELECT category, limit_amount FROM budgets ORDER BY category`)
+func ListTransactions() ([]Transaction, error) {
+	query := `SELECT id, amount, category, description, date 
+	          FROM expenses 
+	          ORDER BY date DESC, id DESC`
+
+	rows, err := db.DB().Query(query)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var result []Budget
+
+	result := make([]Transaction, 0)
+	for rows.Next() {
+		var tx Transaction
+		if err := rows.Scan(&tx.ID, &tx.Amount, &tx.Category, &tx.Description, &tx.Date); err != nil {
+			return nil, err
+		}
+		result = append(result, tx)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func SetBudget(b Budget) error {
+	if err := b.Validate(); err != nil {
+		return err
+	}
+
+	query := `INSERT INTO budgets(category, limit_amount) 
+	          VALUES($1, $2) 
+	          ON CONFLICT(category) 
+	          DO UPDATE SET limit_amount = EXCLUDED.limit_amount`
+
+	_, err := db.DB().Exec(query, b.Category, b.Limit)
+	if err != nil {
+		return err
+	}
+
+	client := cache.Client()
+	if client != nil {
+		ctx := context.Background()
+		client.Del(ctx, "budgets:all")
+	}
+
+	return nil
+}
+
+func ListBudgets() ([]Budget, error) {
+	ctx := context.Background()
+	cacheKey := "budgets:all"
+
+	client := cache.Client()
+	if client != nil {
+		cached, err := client.Get(ctx, cacheKey).Result()
+		if err == nil {
+			var result []Budget
+			if err := json.Unmarshal([]byte(cached), &result); err == nil {
+				return result, nil
+			}
+		}
+	}
+
+	query := `SELECT category, limit_amount FROM budgets ORDER BY category`
+
+	rows, err := db.DB().Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make([]Budget, 0)
 	for rows.Next() {
 		var b Budget
 		if err := rows.Scan(&b.Category, &b.Limit); err != nil {
 			return nil, err
 		}
-		b.Period = "месяц"
+		b.Period = "month"
 		result = append(result, b)
 	}
+
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	if cache.Client != nil {
-		if data, err := json.Marshal(result); err == nil {
-			cache.Client.Set(context.Background(), "budgets:all", data, 20*time.Second)
+
+	if client != nil {
+		data, err := json.Marshal(result)
+		if err == nil {
+			client.Set(ctx, cacheKey, data, 30*time.Second)
 		}
 	}
+
 	return result, nil
 }
 
-func AddTransaction(tx Transaction) error {
-	if err := tx.Validate(); err != nil {
-		return err
-	}
-	var limit sql.NullFloat64
-	if err := db.DB.QueryRow(`SELECT limit_amount FROM budgets WHERE category=$1`, tx.Category).Scan(&limit); err != nil && err != sql.ErrNoRows {
-		return err
-	}
-	if limit.Valid {
-		var spent float64
-		if err := db.DB.QueryRow(`SELECT COALESCE(SUM(amount),0) FROM expenses WHERE category=$1`, tx.Category).Scan(&spent); err != nil {
-			return err
-		}
-		if spent+tx.Amount > limit.Float64 {
-			return errors.New("budget exceeded")
-		}
-	}
-	if err := db.DB.QueryRow(`INSERT INTO expenses(amount, category, description, date) VALUES($1,$2,$3,$4) RETURNING id`,
-		tx.Amount, tx.Category, tx.Description, tx.Date).Scan(&tx.ID); err != nil {
-		return err
-	}
-	return nil
-}
+func GetReportSummary(ctx context.Context, from, to time.Time) ([]ReportSummary, error) {
+	fromStr := from.Format("2006-01-02")
+	toStr := to.Format("2006-01-02")
+	cacheKey := fmt.Sprintf("report:summary:%s:%s", fromStr, toStr)
 
-func ListTransactions() ([]Transaction, error) {
-	rows, err := db.DB.Query(`SELECT id, amount, category, description, date FROM expenses ORDER BY date DESC, id DESC`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var result []Transaction
-	for rows.Next() {
-		var t Transaction
-		if err := rows.Scan(&t.ID, &t.Amount, &t.Category, &t.Description, &t.Date); err != nil {
-			return nil, err
-		}
-		result = append(result, t)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
-type ReportItem struct {
-	Category string  `json:"category"`
-	Total    float64 `json:"total"`
-}
-
-func GetReportSummary(ctx context.Context, from, to time.Time) ([]ReportItem, error) {
-	key := fmt.Sprintf("report:summary:%s:%s", from.Format("2006-01-02"), to.Format("2006-01-02"))
-	if cache.Client != nil {
-		if v, err := cache.Client.Get(ctx, key).Result(); err == nil {
-			var items []ReportItem
-			if json.Unmarshal([]byte(v), &items) == nil {
-				return items, nil
+	client := cache.Client()
+	if client != nil {
+		cached, err := client.Get(ctx, cacheKey).Result()
+		if err == nil {
+			var result []ReportSummary
+			if err := json.Unmarshal([]byte(cached), &result); err == nil {
+				return result, nil
 			}
 		}
 	}
-	rows, err := db.DB.QueryContext(ctx, `
-SELECT category, COALESCE(SUM(amount),0) AS total
-FROM expenses
-WHERE date BETWEEN $1 AND $2
-GROUP BY category
-ORDER BY total DESC, category ASC`, from, to)
+
+	query := `SELECT category, COALESCE(SUM(amount), 0) as total 
+	          FROM expenses 
+	          WHERE date >= $1 AND date <= $2 
+	          GROUP BY category 
+	          ORDER BY category`
+
+	rows, err := db.DB().QueryContext(ctx, query, from, to)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var result []ReportItem
+
+	result := make([]ReportSummary, 0)
 	for rows.Next() {
-		var it ReportItem
-		if err := rows.Scan(&it.Category, &it.Total); err != nil {
+		var rs ReportSummary
+		if err := rows.Scan(&rs.Category, &rs.Total); err != nil {
 			return nil, err
 		}
-		result = append(result, it)
+		result = append(result, rs)
 	}
-	if cache.Client != nil {
-		if data, err := json.Marshal(result); err == nil {
-			cache.Client.Set(ctx, key, data, 30*time.Second)
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	if client != nil {
+		data, err := json.Marshal(result)
+		if err == nil {
+			client.Set(ctx, cacheKey, data, 30*time.Second)
 		}
 	}
+
 	return result, nil
 }

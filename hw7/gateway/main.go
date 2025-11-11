@@ -34,7 +34,14 @@ func main() {
 		}
 	})
 
-	mux.HandleFunc("/api/reports/summary", api.GetReportSummary)
+	mux.HandleFunc("/api/reports/summary", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			api.GetReportSummary(w, r)
+		} else {
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	})
 
 	handler := api.LoggingMiddleware(mux)
 

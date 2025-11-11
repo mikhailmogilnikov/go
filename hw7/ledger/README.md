@@ -1,32 +1,70 @@
-# Ledger (hw7)
+# Ledger
 
-Хранит данные в PostgreSQL и кэширует отчёты в Redis. Пакет инициализируется при импорте из Gateway.
+Основной сервис, который работает с базой данных. Хранит всё в PostgreSQL, а отчёты кеширует в Redis.
 
-## Переменные окружения
+## База данных
 
-- `DATABASE_URL` (пример: `postgres://postgres:postgres@localhost:5432/cashapp?sslmode=disable`)
-- или отдельно: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME`, `DB_SSLMODE`
-- Redis: `REDIS_ADDR` (по умолчанию `localhost:6379`), `REDIS_DB` (`0`), `REDIS_PASSWORD` (опционально)
-
-## Миграции (Goose)
+Сначала нужно запустить PostgreSQL. Я использовал Docker:
 
 ```bash
-# применить
-goose -dir ./hw7/ledger/migrations postgres "$DATABASE_URL" up
-# откатить
-goose -dir ./hw7/ledger/migrations postgres "$DATABASE_URL" down
+docker run -d --name cashapp-postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -p 5433:5432 \
+  postgres:16
 ```
 
-Таблицы: `budgets(category UNIQUE, limit_amount>0)`, `expenses(amount<>0, category, description, date)`.
+Потом создаём базу:
+```bash
+psql "postgres://postgres:postgres@localhost:5433/postgres?sslmode=disable" -c "CREATE DATABASE cashapp;"
+```
 
-## Что внутри (кратко)
+## Миграции
 
-- Подключение к PostgreSQL (`sql.Open("pgx", dsn)`, `Ping`), пул: open=10, idle=5.
-- `SetBudget` — upsert; `ListBudgets` — SELECT (+ опциональный кеш).
-- `AddTransaction` — проверка лимита категории, затем INSERT.
-- `ListTransactions` — SELECT.
-- `GetReportSummary(from,to)` — агрегирует траты по категориям и кладёт результат в Redis на ~30 секунд.
+Устанавливаем goose:
+```bash
+go install github.com/pressly/goose/v3/cmd/goose@latest
+```
 
-Перед запуском Gateway примените миграции и задайте переменные из этого файла.
+Применяем миграции:
+```bash
+export DATABASE_URL="postgres://postgres:postgres@localhost:5433/cashapp?sslmode=disable"
+goose -dir ./ledger/migrations postgres "$DATABASE_URL" up
+```
 
+Откатить можно так:
+```bash
+goose -dir ./ledger/migrations postgres "$DATABASE_URL" down
+```
 
+Миграции создают две таблицы: `budgets` и `expenses`. Ещё есть индекс по категории и дате.
+
+## Запуск
+
+Ledger сам подключается к БД при импорте. Нужно только задать переменные окружения.
+
+Для PostgreSQL:
+```bash
+export DATABASE_URL="postgres://user:password@localhost:5432/cashapp?sslmode=disable"
+```
+
+Или можно по отдельности:
+```bash
+export DB_HOST=localhost
+export DB_PORT=5432
+export DB_USER=postgres
+export DB_PASS=postgres
+export DB_NAME=cashapp
+```
+
+Для Redis:
+```bash
+export REDIS_ADDR=localhost:6379
+export REDIS_DB=0
+```
+
+Пароль для Redis не обязателен, можно не ставить.
+
+Запускаем Redis:
+```bash
+docker run -d -p 6379:6379 --name cashcraft-redis redis:7-alpine
+```

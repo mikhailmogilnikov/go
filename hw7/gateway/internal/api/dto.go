@@ -39,6 +39,7 @@ type ErrorResponse struct {
 func ToTransaction(req CreateTransactionRequest) (ledger.Transaction, error) {
 	var date time.Time
 	var err error
+
 	if req.Date != "" {
 		date, err = time.Parse("2006-01-02", req.Date)
 		if err != nil {
@@ -47,6 +48,7 @@ func ToTransaction(req CreateTransactionRequest) (ledger.Transaction, error) {
 	} else {
 		date = time.Now()
 	}
+
 	return ledger.Transaction{
 		Amount:      req.Amount,
 		Category:    req.Category,
@@ -69,7 +71,7 @@ func ToBudget(req CreateBudgetRequest) ledger.Budget {
 	return ledger.Budget{
 		Category: req.Category,
 		Limit:    req.Limit,
-		Period:   "месяц",
+		Period:   "month",
 	}
 }
 
