@@ -1,0 +1,17 @@
+mode: set
+github.com/mikhailmogilnikov/go/final/ledger/internal/domain/budget.go:15.35,16.24 1 1
+github.com/mikhailmogilnikov/go/final/ledger/internal/domain/budget.go:16.24,18.3 1 1
+github.com/mikhailmogilnikov/go/final/ledger/internal/domain/budget.go:19.2,19.22 1 1
+github.com/mikhailmogilnikov/go/final/ledger/internal/domain/budget.go:19.22,21.3 1 1
+github.com/mikhailmogilnikov/go/final/ledger/internal/domain/budget.go:22.2,22.19 1 1
+github.com/mikhailmogilnikov/go/final/ledger/internal/domain/budget.go:22.19,24.3 1 1
+github.com/mikhailmogilnikov/go/final/ledger/internal/domain/budget.go:25.2,25.51 1 1
+github.com/mikhailmogilnikov/go/final/ledger/internal/domain/budget.go:25.51,27.3 1 1
+github.com/mikhailmogilnikov/go/final/ledger/internal/domain/budget.go:28.2,28.12 1 1
+github.com/mikhailmogilnikov/go/final/ledger/internal/domain/transaction.go:20.40,21.19 1 1
+github.com/mikhailmogilnikov/go/final/ledger/internal/domain/transaction.go:21.19,23.3 1 1
+github.com/mikhailmogilnikov/go/final/ledger/internal/domain/transaction.go:24.2,24.22 1 1
+github.com/mikhailmogilnikov/go/final/ledger/internal/domain/transaction.go:24.22,26.3 1 1
+github.com/mikhailmogilnikov/go/final/ledger/internal/domain/transaction.go:27.2,27.19 1 1
+github.com/mikhailmogilnikov/go/final/ledger/internal/domain/transaction.go:27.19,29.3 1 1
+github.com/mikhailmogilnikov/go/final/ledger/internal/domain/transaction.go:30.2,30.12 1 1

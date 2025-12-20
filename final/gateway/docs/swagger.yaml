@@ -1,0 +1,388 @@
+openapi: 3.0.3
+info:
+  title: Expense Tracker API
+  description: API для учёта и анализа личных финансов
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080/api
+    description: Локальный сервер
+
+security:
+  - BearerAuth: []
+
+paths:
+  /auth/register:
+    post:
+      tags:
+        - auth
+      summary: Регистрация нового пользователя
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Успешная регистрация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Ошибка валидации
+        '409':
+          description: Пользователь уже существует
+
+  /auth/login:
+    post:
+      tags:
+        - auth
+      summary: Вход в систему
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Успешный вход
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Неверные учётные данные
+
+  /transactions:
+    get:
+      tags:
+        - transactions
+      summary: Получить список транзакций
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Дата начала (YYYY-MM-DD)
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Дата конца (YYYY-MM-DD)
+        - name: category
+          in: query
+          schema:
+            type: string
+          description: Фильтр по категории
+      responses:
+        '200':
+          description: Список транзакций
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Transaction'
+    post:
+      tags:
+        - transactions
+      summary: Добавить транзакцию
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddTransactionRequest'
+      responses:
+        '201':
+          description: Транзакция создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionResponse'
+
+  /budgets:
+    get:
+      tags:
+        - budgets
+      summary: Получить список бюджетов
+      responses:
+        '200':
+          description: Список бюджетов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Budget'
+    post:
+      tags:
+        - budgets
+      summary: Установить бюджет
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetBudgetRequest'
+      responses:
+        '201':
+          description: Бюджет установлен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+
+  /reports:
+    get:
+      tags:
+        - reports
+      summary: Получить отчёт по расходам
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          description: Дата начала (YYYY-MM-DD)
+        - name: to
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          description: Дата конца (YYYY-MM-DD)
+      responses:
+        '200':
+          description: Отчёт
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+
+  /csv/import:
+    post:
+      tags:
+        - csv
+      summary: Импорт транзакций из CSV
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportCSVRequest'
+      responses:
+        '200':
+          description: Результат импорта
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportCSVResponse'
+
+  /csv/export:
+    get:
+      tags:
+        - csv
+      summary: Экспорт транзакций в CSV
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: CSV данные в base64
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  csv_data:
+                    type: string
+                  rows_count:
+                    type: integer
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: user@example.com
+        password:
+          type: string
+          minLength: 6
+          example: password123
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          example: user@example.com
+        password:
+          type: string
+          example: password123
+
+    AuthResponse:
+      type: object
+      properties:
+        user_id:
+          type: integer
+        token:
+          type: string
+
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: integer
+        amount:
+          type: number
+        category:
+          type: string
+        description:
+          type: string
+        date:
+          type: string
+          format: date
+
+    AddTransactionRequest:
+      type: object
+      required:
+        - amount
+        - category
+      properties:
+        amount:
+          type: number
+          example: 1500.50
+        category:
+          type: string
+          example: food
+        description:
+          type: string
+          example: Обед в кафе
+        date:
+          type: string
+          format: date
+          example: "2024-12-15"
+
+    TransactionResponse:
+      allOf:
+        - $ref: '#/components/schemas/Transaction'
+        - type: object
+          properties:
+            budget_exceeded:
+              type: boolean
+            budget_warning:
+              type: string
+
+    Budget:
+      type: object
+      properties:
+        id:
+          type: integer
+        category:
+          type: string
+        limit_amount:
+          type: number
+        period:
+          type: string
+          enum: [monthly, weekly]
+
+    SetBudgetRequest:
+      type: object
+      required:
+        - category
+        - limit_amount
+      properties:
+        category:
+          type: string
+          example: food
+        limit_amount:
+          type: number
+          example: 15000
+        period:
+          type: string
+          enum: [monthly, weekly]
+          default: monthly
+
+    Report:
+      type: object
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategorySummary'
+        total_expenses:
+          type: number
+        from:
+          type: string
+          format: date
+        to:
+          type: string
+          format: date
+
+    CategorySummary:
+      type: object
+      properties:
+        category:
+          type: string
+        total:
+          type: number
+        budget_limit:
+          type: number
+        budget_percentage:
+          type: number
+
+    ImportCSVRequest:
+      type: object
+      required:
+        - csv_data
+      properties:
+        csv_data:
+          type: string
+          description: CSV данные в base64
+
+    ImportCSVResponse:
+      type: object
+      properties:
+        imported_count:
+          type: integer
+        skipped_count:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+
+
+

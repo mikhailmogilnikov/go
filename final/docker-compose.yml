@@ -1,0 +1,89 @@
+version: '3.8'
+
+services:
+  # PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    container_name: expense_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: expense_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Auth сервис
+  auth:
+    build:
+      context: ./auth
+      dockerfile: Dockerfile
+    container_name: expense_auth
+    environment:
+      GRPC_PORT: "9091"
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/auth?sslmode=disable"
+      JWT_SECRET: "super-secret-key-change-in-production"
+    ports:
+      - "9091:9091"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Ledger сервис
+  ledger:
+    build:
+      context: ./ledger
+      dockerfile: Dockerfile
+    container_name: expense_ledger
+    environment:
+      GRPC_PORT: "9090"
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/ledger?sslmode=disable"
+      REDIS_ADDR: "redis:6379"
+    ports:
+      - "9090:9090"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Gateway (HTTP API)
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: expense_gateway
+    environment:
+      HTTP_PORT: "8080"
+      AUTH_GRPC_ADDR: "auth:9091"
+      LEDGER_GRPC_ADDR: "ledger:9090"
+    ports:
+      - "8080:8080"
+    depends_on:
+      - auth
+      - ledger
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+

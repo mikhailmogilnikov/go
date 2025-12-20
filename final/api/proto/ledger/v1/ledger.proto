@@ -1,0 +1,140 @@
+syntax = "proto3";
+
+package ledger.v1;
+
+option go_package = "github.com/mikhailmogilnikov/go/final/pkg/pb/ledger/v1";
+
+import "google/protobuf/timestamp.proto";
+
+// Основной сервис для работы с финансами
+service LedgerService {
+  // Транзакции
+  rpc AddTransaction(AddTransactionRequest) returns (AddTransactionResponse);
+  rpc GetTransactions(GetTransactionsRequest) returns (GetTransactionsResponse);
+  
+  // Бюджеты
+  rpc SetBudget(SetBudgetRequest) returns (SetBudgetResponse);
+  rpc GetBudgets(GetBudgetsRequest) returns (GetBudgetsResponse);
+  
+  // Отчёты
+  rpc GetReport(GetReportRequest) returns (GetReportResponse);
+  
+  // Импорт/Экспорт CSV
+  rpc ImportCSV(ImportCSVRequest) returns (ImportCSVResponse);
+  rpc ExportCSV(ExportCSVRequest) returns (ExportCSVResponse);
+}
+
+// === Транзакции ===
+
+message Transaction {
+  int64 id = 1;
+  int64 user_id = 2;
+  double amount = 3;
+  string category = 4;
+  string description = 5;
+  google.protobuf.Timestamp date = 6;
+  google.protobuf.Timestamp created_at = 7;
+}
+
+message AddTransactionRequest {
+  int64 user_id = 1;
+  double amount = 2;
+  string category = 3;
+  string description = 4;
+  google.protobuf.Timestamp date = 5;
+}
+
+message AddTransactionResponse {
+  Transaction transaction = 1;
+  bool budget_exceeded = 2;        // флаг превышения бюджета
+  string budget_warning = 3;       // предупреждение если близко к лимиту
+}
+
+message GetTransactionsRequest {
+  int64 user_id = 1;
+  google.protobuf.Timestamp from = 2;  // опционально
+  google.protobuf.Timestamp to = 3;    // опционально
+  string category = 4;                  // фильтр по категории
+}
+
+message GetTransactionsResponse {
+  repeated Transaction transactions = 1;
+}
+
+// === Бюджеты ===
+
+message Budget {
+  int64 id = 1;
+  int64 user_id = 2;
+  string category = 3;
+  double limit_amount = 4;
+  string period = 5;  // "monthly" или "weekly"
+}
+
+message SetBudgetRequest {
+  int64 user_id = 1;
+  string category = 2;
+  double limit_amount = 3;
+  string period = 4;
+}
+
+message SetBudgetResponse {
+  Budget budget = 1;
+}
+
+message GetBudgetsRequest {
+  int64 user_id = 1;
+}
+
+message GetBudgetsResponse {
+  repeated Budget budgets = 1;
+}
+
+// === Отчёты ===
+
+message CategorySummary {
+  string category = 1;
+  double total = 2;
+  double budget_limit = 3;        // лимит бюджета (0 если не задан)
+  double budget_percentage = 4;   // процент использования бюджета
+}
+
+message GetReportRequest {
+  int64 user_id = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+}
+
+message GetReportResponse {
+  repeated CategorySummary categories = 1;
+  double total_expenses = 2;
+  google.protobuf.Timestamp from = 3;
+  google.protobuf.Timestamp to = 4;
+}
+
+// === CSV ===
+
+message ImportCSVRequest {
+  int64 user_id = 1;
+  bytes csv_data = 2;
+}
+
+message ImportCSVResponse {
+  int32 imported_count = 1;
+  int32 skipped_count = 2;
+  repeated string errors = 3;
+}
+
+message ExportCSVRequest {
+  int64 user_id = 1;
+  google.protobuf.Timestamp from = 2;
+  google.protobuf.Timestamp to = 3;
+}
+
+message ExportCSVResponse {
+  bytes csv_data = 1;
+  int32 rows_count = 2;
+}
+
+
+

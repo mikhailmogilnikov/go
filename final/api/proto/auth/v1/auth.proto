@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package auth.v1;
+
+option go_package = "github.com/mikhailmogilnikov/go/final/pkg/pb/auth/v1";
+
+// Сервис авторизации
+service AuthService {
+  // Регистрация нового пользователя
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  // Вход в систему
+  rpc Login(LoginRequest) returns (LoginResponse);
+  // Валидация JWT токена
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+}
+
+message RegisterRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message RegisterResponse {
+  int64 user_id = 1;
+  string token = 2;
+}
+
+message LoginRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  int64 user_id = 1;
+  string token = 2;
+}
+
+message ValidateTokenRequest {
+  string token = 1;
+}
+
+message ValidateTokenResponse {
+  bool valid = 1;
+  int64 user_id = 2;
+  string email = 3;
+}
+
+
+
