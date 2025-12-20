@@ -64,7 +64,7 @@ func (s *LedgerService) AddTransaction(ctx context.Context, tx *domain.Transacti
 			return "", fmt.Errorf("%w: limit %.2f, would be %.2f (%.1f%%)",
 				ErrBudgetExceeded, budget.LimitAmount, newTotal, percentage)
 		}
-		
+
 		// Предупреждение если близко к лимиту
 		if percentage >= 80 {
 			budgetWarning = fmt.Sprintf("Warning: %.1f%% of budget used (%.2f/%.2f)",
@@ -77,7 +77,7 @@ func (s *LedgerService) AddTransaction(ctx context.Context, tx *domain.Transacti
 		return "", err
 	}
 
-	// Инвалидируем кэш отчётов
+	// Инвалидируем кэш отчётов (данные изменились)
 	if s.cache != nil {
 		s.cache.InvalidateReports(ctx, tx.UserID)
 	}
@@ -95,15 +95,43 @@ func (s *LedgerService) SetBudget(ctx context.Context, budget *domain.Budget) er
 	if err := budget.Validate(); err != nil {
 		return err
 	}
-	return s.budgetRepo.Upsert(ctx, budget)
+
+	if err := s.budgetRepo.Upsert(ctx, budget); err != nil {
+		return err
+	}
+
+	// Инвалидируем кэш бюджетов после изменения
+	if s.cache != nil {
+		s.cache.InvalidateBudgets(ctx, budget.UserID)
+	}
+
+	return nil
 }
 
-// GetBudgets возвращает бюджеты пользователя
+// GetBudgets возвращает бюджеты пользователя с кэшированием
 func (s *LedgerService) GetBudgets(ctx context.Context, userID int64) ([]domain.Budget, error) {
-	return s.budgetRepo.GetByUserID(ctx, userID)
+	// Пробуем получить из кэша
+	if s.cache != nil {
+		if cached, err := s.cache.GetBudgets(ctx, userID); err == nil && cached != nil {
+			return cached, nil
+		}
+	}
+
+	// Получаем из БД
+	budgets, err := s.budgetRepo.GetByUserID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Сохраняем в кэш
+	if s.cache != nil {
+		s.cache.SetBudgets(ctx, userID, budgets)
+	}
+
+	return budgets, nil
 }
 
-// GetReport возвращает отчёт по расходам
+// GetReport возвращает отчёт по расходам с кэшированием
 func (s *LedgerService) GetReport(ctx context.Context, userID int64, from, to time.Time) ([]domain.CategorySummary, float64, error) {
 	// Пробуем получить из кэша
 	if s.cache != nil {
@@ -112,7 +140,7 @@ func (s *LedgerService) GetReport(ctx context.Context, userID int64, from, to ti
 		}
 	}
 
-	// Получаем сводку из БД
+	// Получаем сводку из БД (SUM + GROUP BY)
 	summaries, err := s.txRepo.GetReportSummary(ctx, userID, from, to)
 	if err != nil {
 		return nil, 0, err
@@ -138,7 +166,7 @@ func (s *LedgerService) GetReport(ctx context.Context, userID int64, from, to ti
 		}
 	}
 
-	// Сохраняем в кэш
+	// Сохраняем в кэш с TTL
 	if s.cache != nil {
 		s.cache.SetReport(ctx, userID, from, to, &cache.ReportCache{
 			Categories:    summaries,
@@ -170,4 +198,3 @@ func (s *LedgerService) getBudgetPeriod(period string, date time.Time) (time.Tim
 		return from, to
 	}
 }
-

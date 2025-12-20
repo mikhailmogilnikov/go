@@ -41,14 +41,13 @@ func main() {
 	}
 	log.Println("Connected to PostgreSQL")
 
-	// Подключаемся к Redis (опционально)
+	// Подключаемся к Redis для кэширования
 	var redisCache *cache.Cache
-	redisCache, err = cache.NewCache(cfg.RedisAddr, cfg.CacheTTL)
+	redisCache, err = cache.NewCache(cfg.RedisAddr, cfg.RedisDB, cfg.RedisPassword, cfg.CacheTTL)
 	if err != nil {
 		log.Printf("Warning: Redis not available, caching disabled: %v", err)
 		redisCache = nil
 	} else {
-		log.Println("Connected to Redis")
 		defer redisCache.Close()
 	}
 
@@ -80,6 +79,3 @@ func main() {
 	grpcSrv.GracefulStop()
 	log.Println("Ledger service stopped")
 }
-
-
-
