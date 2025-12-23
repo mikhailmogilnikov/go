@@ -8,44 +8,29 @@ import (
 	authv1 "github.com/mikhailmogilnikov/go/final/gateway/internal/pb/auth/v1"
 )
 
-// AuthHandler хендлер для авторизации
 type AuthHandler struct {
 	authClient authv1.AuthServiceClient
 }
 
-// NewAuthHandler создаёт новый хендлер
 func NewAuthHandler(authClient authv1.AuthServiceClient) *AuthHandler {
 	return &AuthHandler{authClient: authClient}
 }
 
-// RegisterRequest запрос на регистрацию
 type RegisterRequest struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=6"`
 }
 
-// LoginRequest запрос на вход
 type LoginRequest struct {
 	Email    string `json:"email" binding:"required"`
 	Password string `json:"password" binding:"required"`
 }
 
-// AuthResponse ответ авторизации
 type AuthResponse struct {
 	UserID int64  `json:"user_id"`
 	Token  string `json:"token"`
 }
 
-// Register регистрация пользователя
-// @Summary Регистрация нового пользователя
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body RegisterRequest true "Данные для регистрации"
-// @Success 201 {object} AuthResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 409 {object} ErrorResponse
-// @Router /api/auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -58,7 +43,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		Password: req.Password,
 	})
 	if err != nil {
-		// Проверяем на конфликт (пользователь уже существует)
 		if containsString(err.Error(), "AlreadyExists") {
 			c.JSON(http.StatusConflict, gin.H{"error": "user with this email already exists"})
 			return
@@ -73,16 +57,6 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	})
 }
 
-// Login вход пользователя
-// @Summary Вход в систему
-// @Tags auth
-// @Accept json
-// @Produce json
-// @Param request body LoginRequest true "Данные для входа"
-// @Success 200 {object} AuthResponse
-// @Failure 400 {object} ErrorResponse
-// @Failure 401 {object} ErrorResponse
-// @Router /api/auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -109,7 +83,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
-// Register регистрирует роуты
 func (h *AuthHandler) RegisterRoutes(r *gin.RouterGroup) {
 	auth := r.Group("/auth")
 	{
@@ -130,6 +103,3 @@ func containsHelper(s, substr string) bool {
 	}
 	return false
 }
-
-
-

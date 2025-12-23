@@ -20,13 +20,6 @@ import (
 	ledgerv1 "github.com/mikhailmogilnikov/go/final/gateway/internal/pb/ledger/v1"
 )
 
-// @title Expense Tracker API
-// @version 1.0
-// @description API для учёта и анализа личных финансов
-// @BasePath /api
-// @securityDefinitions.apikey BearerAuth
-// @in header
-// @name Authorization
 func main() {
 	_ = godotenv.Load()
 
@@ -35,7 +28,6 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Подключаемся к Auth сервису
 	log.Printf("Connecting to Auth gRPC at %s", cfg.AuthGRPCAddr)
 	authConn, err := grpc.DialContext(ctx, cfg.AuthGRPCAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -45,7 +37,6 @@ func main() {
 	defer authConn.Close()
 	log.Println("Connected to Auth service")
 
-	// Подключаемся к Ledger сервису
 	log.Printf("Connecting to Ledger gRPC at %s", cfg.LedgerGRPCAddr)
 	ledgerConn, err := grpc.DialContext(ctx, cfg.LedgerGRPCAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -55,20 +46,16 @@ func main() {
 	defer ledgerConn.Close()
 	log.Println("Connected to Ledger service")
 
-	// Создаём клиенты
 	authClient := authv1.NewAuthServiceClient(authConn)
 	ledgerClient := ledgerv1.NewLedgerServiceClient(ledgerConn)
 
-	// Создаём middleware и хендлеры
 	authMiddleware := middleware.NewAuthMiddleware(authClient)
 	authHandler := handler.NewAuthHandler(authClient)
 	ledgerHandler := handler.NewLedgerHandler(ledgerClient)
 
-	// Настраиваем Gin
 	engine := gin.New()
 	engine.Use(gin.Logger(), gin.Recovery())
 
-	// CORS для Google Apps Script
 	engine.Use(func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
@@ -80,7 +67,6 @@ func main() {
 		c.Next()
 	})
 
-	// Health check / ping
 	engine.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
@@ -88,12 +74,10 @@ func main() {
 		c.String(http.StatusOK, "pong")
 	})
 
-	// API роуты
 	api := engine.Group("/api")
 	authHandler.RegisterRoutes(api)
 	ledgerHandler.RegisterRoutes(api, authMiddleware)
 
-	// Запускаем HTTP сервер
 	httpAddr := ":" + cfg.HTTPPort
 	server := &http.Server{
 		Addr:         httpAddr,

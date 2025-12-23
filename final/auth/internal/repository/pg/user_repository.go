@@ -10,17 +10,14 @@ import (
 	"github.com/mikhailmogilnikov/go/final/auth/internal/domain"
 )
 
-// UserRepository реализует domain.UserRepository для PostgreSQL
 type UserRepository struct {
 	db *pgxpool.Pool
 }
 
-// NewUserRepository создаёт новый репозиторий
 func NewUserRepository(db *pgxpool.Pool) *UserRepository {
 	return &UserRepository{db: db}
 }
 
-// Create создаёт нового пользователя
 func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 	query := `
 		INSERT INTO users (email, password_hash)
@@ -30,7 +27,6 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 	err := r.db.QueryRow(ctx, query, user.Email, user.PasswordHash).
 		Scan(&user.ID, &user.CreatedAt)
 	if err != nil {
-		// Проверяем на дубликат email
 		if isDuplicateKeyError(err) {
 			return errors.New("user with this email already exists")
 		}
@@ -39,7 +35,6 @@ func (r *UserRepository) Create(ctx context.Context, user *domain.User) error {
 	return nil
 }
 
-// GetByEmail ищет пользователя по email
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	query := `
 		SELECT id, email, password_hash, created_at
@@ -58,7 +53,6 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*domain.
 	return user, nil
 }
 
-// GetByID ищет пользователя по ID
 func (r *UserRepository) GetByID(ctx context.Context, id int64) (*domain.User, error) {
 	query := `
 		SELECT id, email, password_hash, created_at
@@ -77,9 +71,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id int64) (*domain.User, e
 	return user, nil
 }
 
-// isDuplicateKeyError проверяет, является ли ошибка дубликатом ключа
 func isDuplicateKeyError(err error) bool {
-	// PostgreSQL код ошибки 23505 - unique_violation
 	return err != nil && contains(err.Error(), "23505")
 }
 

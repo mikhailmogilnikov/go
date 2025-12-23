@@ -2,16 +2,14 @@ package domain
 
 import "errors"
 
-// Budget представляет бюджет по категории
 type Budget struct {
 	ID          int64
 	UserID      int64
 	Category    string
 	LimitAmount float64
-	Period      string // "monthly" или "weekly"
+	Period      string
 }
 
-// Validate проверяет валидность бюджета
 func (b *Budget) Validate() error {
 	if b.LimitAmount <= 0 {
 		return errors.New("limit must be positive")
@@ -23,7 +21,7 @@ func (b *Budget) Validate() error {
 		return errors.New("user_id is required")
 	}
 	if b.Period != "monthly" && b.Period != "weekly" {
-		b.Period = "monthly" // дефолт
+		b.Period = "monthly"
 	}
 	return nil
 }

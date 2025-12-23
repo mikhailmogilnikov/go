@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-// Config конфигурация Gateway
 type Config struct {
 	HTTPPort        string
 	AuthGRPCAddr    string
@@ -15,7 +14,6 @@ type Config struct {
 	ShutdownTimeout time.Duration
 }
 
-// Load загружает конфигурацию
 func Load() *Config {
 	return &Config{
 		HTTPPort:        getEnv("HTTP_PORT", "8080"),

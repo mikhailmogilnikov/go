@@ -15,18 +15,15 @@ import (
 	"github.com/mikhailmogilnikov/go/final/ledger/internal/service"
 )
 
-// LedgerServer реализует gRPC сервер
 type LedgerServer struct {
 	pb.UnimplementedLedgerServiceServer
 	ledgerService *service.LedgerService
 }
 
-// NewLedgerServer создаёт новый сервер
 func NewLedgerServer(ledgerService *service.LedgerService) *LedgerServer {
 	return &LedgerServer{ledgerService: ledgerService}
 }
 
-// AddTransaction добавляет транзакцию
 func (s *LedgerServer) AddTransaction(ctx context.Context, req *pb.AddTransactionRequest) (*pb.AddTransactionResponse, error) {
 	if req.GetUserId() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
@@ -50,7 +47,6 @@ func (s *LedgerServer) AddTransaction(ctx context.Context, req *pb.AddTransactio
 
 	budgetWarning, err := s.ledgerService.AddTransaction(ctx, tx)
 	if err != nil {
-		// Превышение бюджета - возвращаем конфликт (транзакция отклонена)
 		if errors.Is(err, service.ErrBudgetExceeded) {
 			return nil, status.Errorf(codes.FailedPrecondition, "%v", err)
 		}
@@ -64,7 +60,6 @@ func (s *LedgerServer) AddTransaction(ctx context.Context, req *pb.AddTransactio
 	}, nil
 }
 
-// GetTransactions возвращает транзакции
 func (s *LedgerServer) GetTransactions(ctx context.Context, req *pb.GetTransactionsRequest) (*pb.GetTransactionsResponse, error) {
 	if req.GetUserId() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
@@ -86,7 +81,6 @@ func (s *LedgerServer) GetTransactions(ctx context.Context, req *pb.GetTransacti
 	}, nil
 }
 
-// SetBudget устанавливает бюджет
 func (s *LedgerServer) SetBudget(ctx context.Context, req *pb.SetBudgetRequest) (*pb.SetBudgetResponse, error) {
 	if req.GetUserId() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
@@ -114,7 +108,6 @@ func (s *LedgerServer) SetBudget(ctx context.Context, req *pb.SetBudgetRequest) 
 	}, nil
 }
 
-// GetBudgets возвращает бюджеты
 func (s *LedgerServer) GetBudgets(ctx context.Context, req *pb.GetBudgetsRequest) (*pb.GetBudgetsResponse, error) {
 	if req.GetUserId() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
@@ -135,7 +128,6 @@ func (s *LedgerServer) GetBudgets(ctx context.Context, req *pb.GetBudgetsRequest
 	}, nil
 }
 
-// GetReport возвращает отчёт
 func (s *LedgerServer) GetReport(ctx context.Context, req *pb.GetReportRequest) (*pb.GetReportResponse, error) {
 	if req.GetUserId() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
@@ -170,7 +162,6 @@ func (s *LedgerServer) GetReport(ctx context.Context, req *pb.GetReportRequest) 
 	}, nil
 }
 
-// ImportCSV импортирует транзакции из CSV
 func (s *LedgerServer) ImportCSV(ctx context.Context, req *pb.ImportCSVRequest) (*pb.ImportCSVResponse, error) {
 	if req.GetUserId() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
@@ -207,7 +198,6 @@ func (s *LedgerServer) ImportCSV(ctx context.Context, req *pb.ImportCSVRequest) 
 	}, nil
 }
 
-// ExportCSV экспортирует транзакции в CSV
 func (s *LedgerServer) ExportCSV(ctx context.Context, req *pb.ExportCSVRequest) (*pb.ExportCSVResponse, error) {
 	if req.GetUserId() <= 0 {
 		return nil, status.Error(codes.InvalidArgument, "user_id is required")
@@ -229,8 +219,6 @@ func (s *LedgerServer) ExportCSV(ctx context.Context, req *pb.ExportCSVRequest) 
 		RowsCount: int32(len(transactions)),
 	}, nil
 }
-
-// Хелперы для конвертации
 
 func toProtoTransaction(tx *domain.Transaction) *pb.Transaction {
 	return &pb.Transaction{

@@ -9,17 +9,14 @@ import (
 	"github.com/mikhailmogilnikov/go/final/ledger/internal/domain"
 )
 
-// TransactionRepository репозиторий для транзакций
 type TransactionRepository struct {
 	db *pgxpool.Pool
 }
 
-// NewTransactionRepository создаёт новый репозиторий
 func NewTransactionRepository(db *pgxpool.Pool) *TransactionRepository {
 	return &TransactionRepository{db: db}
 }
 
-// Create создаёт новую транзакцию
 func (r *TransactionRepository) Create(ctx context.Context, tx *domain.Transaction) error {
 	query := `
 		INSERT INTO transactions (user_id, amount, category, description, date)
@@ -31,7 +28,6 @@ func (r *TransactionRepository) Create(ctx context.Context, tx *domain.Transacti
 	).Scan(&tx.ID, &tx.CreatedAt)
 }
 
-// GetByUserID возвращает транзакции пользователя с фильтрами
 func (r *TransactionRepository) GetByUserID(ctx context.Context, userID int64, from, to *time.Time, category string) ([]domain.Transaction, error) {
 	query := `
 		SELECT id, user_id, amount, category, description, date, created_at
@@ -75,7 +71,6 @@ func (r *TransactionRepository) GetByUserID(ctx context.Context, userID int64, f
 	return transactions, rows.Err()
 }
 
-// SumByCategory возвращает сумму расходов по категории за период
 func (r *TransactionRepository) SumByCategory(ctx context.Context, userID int64, category string, from, to time.Time) (float64, error) {
 	query := `
 		SELECT COALESCE(SUM(amount), 0)
@@ -87,7 +82,6 @@ func (r *TransactionRepository) SumByCategory(ctx context.Context, userID int64,
 	return sum, err
 }
 
-// GetReportSummary возвращает сводку расходов по категориям
 func (r *TransactionRepository) GetReportSummary(ctx context.Context, userID int64, from, to time.Time) ([]domain.CategorySummary, error) {
 	query := `
 		SELECT category, SUM(amount) as total

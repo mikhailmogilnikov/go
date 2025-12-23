@@ -10,17 +10,14 @@ import (
 	"github.com/mikhailmogilnikov/go/final/ledger/internal/domain"
 )
 
-// BudgetRepository репозиторий для бюджетов
 type BudgetRepository struct {
 	db *pgxpool.Pool
 }
 
-// NewBudgetRepository создаёт новый репозиторий
 func NewBudgetRepository(db *pgxpool.Pool) *BudgetRepository {
 	return &BudgetRepository{db: db}
 }
 
-// Upsert создаёт или обновляет бюджет
 func (r *BudgetRepository) Upsert(ctx context.Context, budget *domain.Budget) error {
 	query := `
 		INSERT INTO budgets (user_id, category, limit_amount, period)
@@ -35,7 +32,6 @@ func (r *BudgetRepository) Upsert(ctx context.Context, budget *domain.Budget) er
 	).Scan(&budget.ID)
 }
 
-// GetByUserID возвращает все бюджеты пользователя
 func (r *BudgetRepository) GetByUserID(ctx context.Context, userID int64) ([]domain.Budget, error) {
 	query := `
 		SELECT id, user_id, category, limit_amount, period
@@ -61,7 +57,6 @@ func (r *BudgetRepository) GetByUserID(ctx context.Context, userID int64) ([]dom
 	return budgets, rows.Err()
 }
 
-// GetByCategory возвращает бюджет по категории
 func (r *BudgetRepository) GetByCategory(ctx context.Context, userID int64, category string) (*domain.Budget, error) {
 	query := `
 		SELECT id, user_id, category, limit_amount, period

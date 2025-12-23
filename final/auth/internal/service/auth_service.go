@@ -11,14 +11,12 @@ import (
 	"github.com/mikhailmogilnikov/go/final/auth/internal/domain"
 )
 
-// AuthService сервис авторизации
 type AuthService struct {
 	userRepo  domain.UserRepository
 	jwtSecret []byte
 	tokenTTL  time.Duration
 }
 
-// NewAuthService создаёт новый сервис авторизации
 func NewAuthService(userRepo domain.UserRepository, jwtSecret string, tokenTTL time.Duration) *AuthService {
 	return &AuthService{
 		userRepo:  userRepo,
@@ -27,9 +25,7 @@ func NewAuthService(userRepo domain.UserRepository, jwtSecret string, tokenTTL t
 	}
 }
 
-// Register регистрирует нового пользователя
 func (s *AuthService) Register(ctx context.Context, email, password string) (int64, string, error) {
-	// Валидация
 	if err := domain.ValidateEmail(email); err != nil {
 		return 0, "", err
 	}
@@ -37,7 +33,6 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (int
 		return 0, "", err
 	}
 
-	// Проверяем, что пользователь не существует
 	existing, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
 		return 0, "", err
@@ -46,13 +41,11 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (int
 		return 0, "", errors.New("user with this email already exists")
 	}
 
-	// Хешируем пароль
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return 0, "", err
 	}
 
-	// Создаём пользователя
 	user := &domain.User{
 		Email:        email,
 		PasswordHash: string(hash),
@@ -61,7 +54,6 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (int
 		return 0, "", err
 	}
 
-	// Генерируем токен
 	token, err := s.generateToken(user.ID, user.Email)
 	if err != nil {
 		return 0, "", err
@@ -70,9 +62,7 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (int
 	return user.ID, token, nil
 }
 
-// Login выполняет вход пользователя
 func (s *AuthService) Login(ctx context.Context, email, password string) (int64, string, error) {
-	// Ищем пользователя
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
 		return 0, "", err
@@ -81,13 +71,11 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (int64,
 		return 0, "", errors.New("invalid email or password")
 	}
 
-	// Проверяем пароль
 	err = bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password))
 	if err != nil {
 		return 0, "", errors.New("invalid email or password")
 	}
 
-	// Генерируем токен
 	token, err := s.generateToken(user.ID, user.Email)
 	if err != nil {
 		return 0, "", err
@@ -96,7 +84,6 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (int64,
 	return user.ID, token, nil
 }
 
-// ValidateToken проверяет JWT токен
 func (s *AuthService) ValidateToken(tokenString string) (int64, string, bool) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
@@ -127,7 +114,6 @@ func (s *AuthService) ValidateToken(tokenString string) (int64, string, bool) {
 	return int64(userID), email, true
 }
 
-// generateToken генерирует JWT токен
 func (s *AuthService) generateToken(userID int64, email string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,

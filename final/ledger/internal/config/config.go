@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-// Config конфигурация Ledger сервиса
 type Config struct {
 	GRPCPort      string
 	DatabaseURL   string
@@ -16,7 +15,6 @@ type Config struct {
 	CacheTTL      time.Duration
 }
 
-// Load загружает конфигурацию из переменных окружения
 func Load() *Config {
 	redisDB := 0
 	if dbStr := os.Getenv("REDIS_DB"); dbStr != "" {
@@ -30,8 +28,8 @@ func Load() *Config {
 		DatabaseURL:   getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/ledger?sslmode=disable"),
 		RedisAddr:     getEnv("REDIS_ADDR", "localhost:6379"),
 		RedisDB:       redisDB,
-		RedisPassword: os.Getenv("REDIS_PASSWORD"), // опционально
-		CacheTTL:      30 * time.Second,            // TTL 30 секунд как в ТЗ
+		RedisPassword: os.Getenv("REDIS_PASSWORD"),
+		CacheTTL:      30 * time.Second,
 	}
 }
 

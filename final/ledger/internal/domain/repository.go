@@ -5,7 +5,6 @@ import (
 	"time"
 )
 
-// TransactionRepository интерфейс для работы с транзакциями
 type TransactionRepository interface {
 	Create(ctx context.Context, tx *Transaction) error
 	GetByUserID(ctx context.Context, userID int64, from, to *time.Time, category string) ([]Transaction, error)
@@ -13,7 +12,6 @@ type TransactionRepository interface {
 	GetReportSummary(ctx context.Context, userID int64, from, to time.Time) ([]CategorySummary, error)
 }
 
-// BudgetRepository интерфейс для работы с бюджетами
 type BudgetRepository interface {
 	Upsert(ctx context.Context, budget *Budget) error
 	GetByUserID(ctx context.Context, userID int64) ([]Budget, error)

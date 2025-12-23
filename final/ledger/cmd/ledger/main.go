@@ -21,7 +21,6 @@ import (
 )
 
 func main() {
-	// Загружаем .env если есть
 	_ = godotenv.Load()
 
 	cfg := config.Load()
@@ -29,7 +28,6 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// Подключаемся к PostgreSQL
 	pool, err := pgxpool.New(ctx, cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("Unable to connect to database: %v", err)
@@ -41,7 +39,6 @@ func main() {
 	}
 	log.Println("Connected to PostgreSQL")
 
-	// Подключаемся к Redis для кэширования
 	var redisCache *cache.Cache
 	redisCache, err = cache.NewCache(cfg.RedisAddr, cfg.RedisDB, cfg.RedisPassword, cfg.CacheTTL)
 	if err != nil {
@@ -51,13 +48,11 @@ func main() {
 		defer redisCache.Close()
 	}
 
-	// Создаём зависимости
 	txRepo := pg.NewTransactionRepository(pool)
 	budgetRepo := pg.NewBudgetRepository(pool)
 	ledgerService := service.NewLedgerService(txRepo, budgetRepo, redisCache)
 	ledgerServer := grpcserver.NewLedgerServer(ledgerService)
 
-	// Запускаем gRPC сервер
 	grpcAddr := ":" + cfg.GRPCPort
 	lis, err := net.Listen("tcp", grpcAddr)
 	if err != nil {

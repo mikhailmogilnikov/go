@@ -36,7 +36,7 @@ func TestBudget_Validate(t *testing.T) {
 				LimitAmount: 10000,
 				Period:      "",
 			},
-			wantErr: false, // period becomes "monthly"
+			wantErr: false, 
 		},
 		{
 			name: "zero limit",

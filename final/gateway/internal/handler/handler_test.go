@@ -14,7 +14,6 @@ func init() {
 	gin.SetMode(gin.TestMode)
 }
 
-// TestRegisterRequest_Validation проверяет валидацию запроса регистрации
 func TestRegisterRequest_Validation(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -27,7 +26,7 @@ func TestRegisterRequest_Validation(t *testing.T) {
 				"email":    "test@example.com",
 				"password": "password123",
 			},
-			wantStatus: http.StatusOK, // валидация прошла
+			wantStatus: http.StatusOK,
 		},
 		{
 			name: "missing email",
@@ -57,7 +56,6 @@ func TestRegisterRequest_Validation(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			router := gin.New()
-			// Простой хендлер для тестирования валидации
 			router.POST("/register", func(c *gin.Context) {
 				var req RegisterRequest
 				if err := c.ShouldBindJSON(&req); err != nil {
@@ -81,7 +79,6 @@ func TestRegisterRequest_Validation(t *testing.T) {
 	}
 }
 
-// TestAddTransactionRequest_Validation проверяет валидацию запроса транзакции
 func TestAddTransactionRequest_Validation(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -164,7 +161,6 @@ func TestAddTransactionRequest_Validation(t *testing.T) {
 	}
 }
 
-// TestSetBudgetRequest_Validation проверяет валидацию запроса бюджета
 func TestSetBudgetRequest_Validation(t *testing.T) {
 	tests := []struct {
 		name       string

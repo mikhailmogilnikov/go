@@ -12,19 +12,16 @@ import (
 	"github.com/mikhailmogilnikov/go/final/ledger/internal/domain"
 )
 
-// ReportCache структура для кэширования отчётов
 type ReportCache struct {
 	Categories    []domain.CategorySummary
 	TotalExpenses float64
 }
 
-// Cache обёртка над Redis для кэширования данных
 type Cache struct {
 	client *redis.Client
 	ttl    time.Duration
 }
 
-// NewCache создаёт новый кэш с подключением к Redis
 func NewCache(addr string, db int, password string, ttl time.Duration) (*Cache, error) {
 	client := redis.NewClient(&redis.Options{
 		Addr:     addr,
@@ -32,7 +29,6 @@ func NewCache(addr string, db int, password string, ttl time.Duration) (*Cache, 
 		Password: password,
 	})
 
-	// Проверяем подключение к Redis
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -48,14 +44,10 @@ func NewCache(addr string, db int, password string, ttl time.Duration) (*Cache, 
 	}, nil
 }
 
-// Close закрывает соединение с Redis
 func (c *Cache) Close() error {
 	return c.client.Close()
 }
 
-// === КЭШИРОВАНИЕ ОТЧЁТОВ ===
-
-// GetReport получает отчёт из кэша
 func (c *Cache) GetReport(ctx context.Context, userID int64, from, to time.Time) (*ReportCache, error) {
 	key := c.reportKey(userID, from, to)
 	data, err := c.client.Get(ctx, key).Bytes()
@@ -75,7 +67,6 @@ func (c *Cache) GetReport(ctx context.Context, userID int64, from, to time.Time)
 	return &report, nil
 }
 
-// SetReport сохраняет отчёт в кэш с TTL
 func (c *Cache) SetReport(ctx context.Context, userID int64, from, to time.Time, report *ReportCache) error {
 	key := c.reportKey(userID, from, to)
 	data, err := json.Marshal(report)
@@ -86,7 +77,6 @@ func (c *Cache) SetReport(ctx context.Context, userID int64, from, to time.Time,
 	return c.client.Set(ctx, key, data, c.ttl).Err()
 }
 
-// InvalidateReports удаляет кэш отчётов пользователя при добавлении транзакции
 func (c *Cache) InvalidateReports(ctx context.Context, userID int64) {
 	pattern := fmt.Sprintf("report:%d:*", userID)
 	iter := c.client.Scan(ctx, 0, pattern, 100).Iterator()
@@ -97,13 +87,9 @@ func (c *Cache) InvalidateReports(ctx context.Context, userID int64) {
 }
 
 func (c *Cache) reportKey(userID int64, from, to time.Time) string {
-	// Формат ключа: report:summary:<userID>:<from>:<to>
 	return fmt.Sprintf("report:summary:%d:%s:%s", userID, from.Format("2006-01-02"), to.Format("2006-01-02"))
 }
 
-// КЭШИРОВАНИЕ БЮДЖЕТОВ
-
-// GetBudgets получает список бюджетов из кэша
 func (c *Cache) GetBudgets(ctx context.Context, userID int64) ([]domain.Budget, error) {
 	key := c.budgetsKey(userID)
 	data, err := c.client.Get(ctx, key).Bytes()
@@ -123,20 +109,17 @@ func (c *Cache) GetBudgets(ctx context.Context, userID int64) ([]domain.Budget, 
 	return budgets, nil
 }
 
-// SetBudgets сохраняет список бюджетов в кэш
 func (c *Cache) SetBudgets(ctx context.Context, userID int64, budgets []domain.Budget) error {
 	key := c.budgetsKey(userID)
 	data, err := json.Marshal(budgets)
 	if err != nil {
 		return err
 	}
-	// TTL для бюджетов короче - 10 секунд
 	ttl := 10 * time.Second
 	log.Printf("[CACHE SET] budgets key=%s ttl=%v", key, ttl)
 	return c.client.Set(ctx, key, data, ttl).Err()
 }
 
-// InvalidateBudgets удаляет кэш бюджетов после изменения
 func (c *Cache) InvalidateBudgets(ctx context.Context, userID int64) {
 	key := c.budgetsKey(userID)
 	c.client.Del(ctx, key)
@@ -144,6 +127,5 @@ func (c *Cache) InvalidateBudgets(ctx context.Context, userID int64) {
 }
 
 func (c *Cache) budgetsKey(userID int64) string {
-	// Формат ключа: budgets:<userID>
 	return fmt.Sprintf("budgets:%d", userID)
 }
