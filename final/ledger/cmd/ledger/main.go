@@ -40,7 +40,23 @@ func main() {
 	log.Println("Connected to PostgreSQL")
 
 	var redisCache *cache.Cache
-	redisCache, err = cache.NewCache(cfg.RedisAddr, cfg.RedisDB, cfg.RedisPassword, cfg.CacheTTL)
+	redisCache, err = cache.NewCache(
+		cache.RedisClientOptions{
+			Addr:         cfg.RedisAddr,
+			DB:           cfg.RedisDB,
+			Password:     cfg.RedisPassword,
+			DialTimeout:  cfg.RedisDialTimeout,
+			ReadTimeout:  cfg.RedisReadTimeout,
+			WriteTimeout: cfg.RedisWriteTimeout,
+			PoolTimeout:  cfg.RedisPoolTimeout,
+			PoolSize:     cfg.RedisPoolSize,
+			MinIdleConns: cfg.RedisMinIdleConns,
+		},
+		cache.TTLConfig{
+			ReportTTL:      cfg.ReportCacheTTL,
+			BudgetsListTTL: cfg.BudgetsCacheTTL,
+		},
+	)
 	if err != nil {
 		log.Printf("Warning: Redis not available, caching disabled: %v", err)
 		redisCache = nil
